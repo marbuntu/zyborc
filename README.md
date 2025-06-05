@@ -1,1 +1,1 @@
-# ZyBoRC - Reconfigurable Boost Core
+# ZyBoRC - Boosted Real-Time Core
