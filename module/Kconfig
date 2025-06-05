@@ -1,0 +1,7 @@
+
+config ZYBORC
+    bool "Enable Zephyr Boost Core"
+    default n
+    depends on FPGA
+    help
+        This Option enables the Zephyr Boost Core Library to offload computation into a the FPGA or create custom Interfaces
