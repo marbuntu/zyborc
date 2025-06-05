@@ -1,0 +1,71 @@
+.PHONY:${BUILDDIR}
+
+current_dir := /home/marbu/projects/zyborc/fabric
+TOP := top
+JSON := 
+TOP_FINAL := top
+VERILOG := ${current_dir}/soc/AL4S3B_FPGA_Top.v \
+${current_dir}/soc/AL4S3B_FPGA_QL_Reserved.v \
+${current_dir}/soc/AL4S3B_FPGA_Registers.v \
+${current_dir}/soc/AL4S3B_FPGA_IP.v \
+${current_dir}/gpio/GPIO_Controller.v  
+PARTNAME := PD64
+DEVICE  := ql-eos-s3
+FAMILY := pp3
+ANALYSIS_CORNER := slow
+PNR_CORNER := slow
+PCF := ${current_dir}/soc/quickfeather.pcf
+PINMAP_CSV := ${current_dir}/build/top_dummy.csv
+SDC_IN := ${current_dir}/build/top_dummy.sdc
+BUILDDIR := build
+
+SDC := ${current_dir}/${BUILDDIR}/${TOP}.sdc
+
+all: ${BUILDDIR}/${TOP}.bit
+
+${BUILDDIR}/${TOP}.eblif: ${VERILOG} ${PCF}
+  ifneq ("$(wildcard $(HEX_FILES))","")
+	$(shell cp ${current_dir}/*.hex ${BUILDDIR})
+  endif
+	cd ${BUILDDIR} && symbiflow_synth -t ${TOP} -v ${VERILOG} -F ${FAMILY} -d ${DEVICE} -p ${PCF} -P ${PART}  > /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+${BUILDDIR}/${TOP}.sdc: ${BUILDDIR}/${TOP}.eblif
+	python3 -m f4pga.utils.quicklogic.process_sdc_constraints --sdc-in ${SDC_IN} --sdc-out $@ --pcf ${PCF} --eblif ${BUILDDIR}/${TOP}.eblif --pin-map ${PINMAP_CSV}
+
+${BUILDDIR}/${TOP}.net: ${BUILDDIR}/${TOP}.eblif ${BUILDDIR}/${TOP}.sdc
+	cd ${BUILDDIR} && symbiflow_pack -e ${TOP}.eblif -f ${FAMILY} -d ${DEVICE} -s ${SDC} -c ${PNR_CORNER} >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+${BUILDDIR}/${TOP}.place: ${BUILDDIR}/${TOP}.net ${PCF}
+	cd ${BUILDDIR} && symbiflow_place -e ${TOP}.eblif -f ${FAMILY} -d ${DEVICE} -p ${PCF} -n ${TOP}.net -P ${PARTNAME} -s ${SDC} -c ${PNR_CORNER} >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+${BUILDDIR}/${TOP_FINAL}.route: ${BUILDDIR}/${TOP_FINAL}.place
+	cd ${BUILDDIR} && symbiflow_route -e ${TOP_FINAL}.eblif -f ${FAMILY} -d ${DEVICE} -s ${SDC} -c ${PNR_CORNER} >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+${BUILDDIR}/${TOP}.post_v: ${BUILDDIR}/${TOP_FINAL}.route
+	cd ${BUILDDIR} && symbiflow_analysis -e ${TOP_FINAL}.eblif -f ${FAMILY} -d ${DEVICE} -s ${SDC} -t ${TOP} -c ${ANALYSIS_CORNER} >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+${BUILDDIR}/${TOP}.fasm: ${BUILDDIR}/${TOP_FINAL}.route
+	cd ${BUILDDIR} && symbiflow_write_fasm -e ${TOP_FINAL}.eblif -f ${FAMILY} -d ${DEVICE} -s ${SDC} -c ${PNR_CORNER} >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+    
+${BUILDDIR}/${TOP}.bit: ${BUILDDIR}/${TOP}.fasm
+	cd ${BUILDDIR} && symbiflow_generate_bitstream -d ${DEVICE} -f ${TOP}.fasm -b ${TOP}.bit >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+    
+${BUILDDIR}/${TOP}_bit.h: ${BUILDDIR}/${TOP}.bit
+	symbiflow_write_bitheader $^ $@ >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+${BUILDDIR}/${TOP}.bin: ${BUILDDIR}/${TOP}.bit
+	symbiflow_write_binary $^ $@ >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+${BUILDDIR}/${TOP}.jlink: ${BUILDDIR}/${TOP}.bit
+	symbiflow_write_jlink $^ $@ >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+${BUILDDIR}/${TOP}.openocd: ${BUILDDIR}/${TOP}.bit
+	symbiflow_write_openocd $^ $@ >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+
+    
+${BUILDDIR}/${TOP}.bit.v: ${BUILDDIR}/${TOP}.bit
+	cd ${BUILDDIR} && symbiflow_fasm2bels -b ${TOP}.bit -d ${DEVICE} -p ${PCF} -P ${PARTNAME} >> /home/marbu/projects/zyborc/fabric/build/top.log 2>&1
+    
+clean:
+	rm -rf ${BUILDDIR}
+   
