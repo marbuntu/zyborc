@@ -1,1 +1,1 @@
-# zybo
+# ZyBoRC - Reconfigurable Boost Core
