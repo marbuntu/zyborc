@@ -1,0 +1,14 @@
+set_io UART0_SIN_i IO_2
+set_io UART0_SOUT_o IO_3
+set_io GPIO_io[0] IO_18
+set_io GPIO_io[1] IO_21
+set_io GPIO_io[2] IO_22
+set_io GPIO_io[4] B5
+set_io GPIO_io[5] F2
+set_io GPIO_io[6] B2
+set_io GPIO_io[7] C3
+set_io spi_clk A4
+set_io spi_co B3
+set_io spi_ci C4
+set_io spi_cs A3
+set_io spi_drdy C5
